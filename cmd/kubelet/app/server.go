@@ -180,11 +180,13 @@ HTTP server: The kubelet can also listen for HTTP and respond to a simple API
 			verflag.PrintAndExitIfRequested()
 
 			// set feature gates from initial flags-based config
+			// 设置是否开启实验功能
 			if err := utilfeature.DefaultMutableFeatureGate.SetFromMap(kubeletConfig.FeatureGates); err != nil {
 				return fmt.Errorf("failed to set feature gates from initial flags-based config: %w", err)
 			}
 
 			// validate the initial KubeletFlags
+			// 检查节点标签，Seccomp 配置，容器运行是类型
 			if err := options.ValidateKubeletFlags(kubeletFlags); err != nil {
 				return fmt.Errorf("failed to validate kubelet flags: %w", err)
 			}
@@ -194,6 +196,7 @@ HTTP server: The kubelet can also listen for HTTP and respond to a simple API
 			}
 
 			// load kubelet config file, if provided
+			// 加载kubelet config 文件
 			if configFile := kubeletFlags.KubeletConfigFile; len(configFile) > 0 {
 				kubeletConfig, err = loadConfigFile(configFile)
 				if err != nil {
@@ -213,6 +216,7 @@ HTTP server: The kubelet can also listen for HTTP and respond to a simple API
 
 			// We always validate the local configuration (command line + config file).
 			// This is the default "last-known-good" config for dynamic config, and must always remain valid.
+			// 验证配置文件是否可用
 			if err := kubeletconfigvalidation.ValidateKubeletConfiguration(kubeletConfig); err != nil {
 				return fmt.Errorf("failed to validate kubelet configuration, error: %w, path: %s", err, kubeletConfig)
 			}
@@ -224,6 +228,7 @@ HTTP server: The kubelet can also listen for HTTP and respond to a simple API
 			// The features.DynamicKubeletConfig is locked to false,
 			// feature gate is not locked using the LockedToDefault flag
 			// to make sure node authorizer can keep working with the older nodes
+			// 默认启用动态配置kubelet 配置文件
 			if utilfeature.DefaultFeatureGate.Enabled(features.DynamicKubeletConfig) {
 				return fmt.Errorf("cannot set feature gate %v to %v, feature is locked to %v", features.DynamicKubeletConfig, true, false)
 			}
@@ -475,21 +480,26 @@ func getReservedCPUs(machineInfo *cadvisorapi.MachineInfo, cpus string) (cpuset.
 
 func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Dependencies, featureGate featuregate.FeatureGate) (err error) {
 	// Set global feature gates based on the value on the initial KubeletServer
+	// 配置 默认可开启关闭的 功能
 	err = utilfeature.DefaultMutableFeatureGate.SetFromMap(s.KubeletConfiguration.FeatureGates)
 	if err != nil {
 		return err
 	}
 	// validate the initial KubeletServer (we set feature gates first, because this validation depends on feature gates)
+	// 验证 KubeletServer 内的 flags 和 kubelet config
 	if err := options.ValidateKubeletServer(s); err != nil {
 		return err
 	}
 
 	// Warn if MemoryQoS enabled with cgroups v1
+	// 开启 MemoryQoS 只有在 cgroup v2 时起作用
 	if utilfeature.DefaultFeatureGate.Enabled(features.MemoryQoS) &&
 		!isCgroup2UnifiedMode() {
 		klog.InfoS("Warning: MemoryQoS feature only works with cgroups v2 on Linux, but enabled with cgroups v1")
 	}
+
 	// Obtain Kubelet Lock File
+	// 设置锁文件
 	if s.ExitOnLockContention && s.LockFilePath == "" {
 		return errors.New("cannot exit on lock file contention: no lock file specified")
 	}
@@ -1073,9 +1083,11 @@ func setContentTypeForClient(cfg *restclient.Config, contentType string) {
 }
 
 // RunKubelet is responsible for setting up and running a kubelet.  It is used in three different applications:
-//   1 Integration tests
-//   2 Kubelet binary
-//   3 Standalone 'kubernetes' binary
+//
+//	1 Integration tests
+//	2 Kubelet binary
+//	3 Standalone 'kubernetes' binary
+//
 // Eventually, #2 will be replaced with instances of #3
 func RunKubelet(kubeServer *options.KubeletServer, kubeDeps *kubelet.Dependencies, runOnce bool) error {
 	hostname, err := nodeutil.GetHostname(kubeServer.HostnameOverride)
